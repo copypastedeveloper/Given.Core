@@ -1,33 +1,69 @@
-﻿using System.Linq;
+﻿using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using Xunit;
+using Xunit.Abstractions;
+using Xunit.Sdk;
 
 namespace Given.Core
 {
     public abstract class Scenario<T> where T : class, new()
     {
-        protected delegate void given(T context);
-        protected delegate void when(T context);
-        protected delegate void then(T context);
+        public delegate void given(T context);
+        public delegate void when(T context);
+        public delegate void then(T context);
 
-        T _context;
-
-        [Fact(DisplayName = "Run")]
-        public void RunScenario()
+        [Theory, ThenData]
+        public void Run(string then)
         {
-            _context = new T();
+            var context = new T();
 
-            var fields = GetType().GetFields(BindingFlags.NonPublic | BindingFlags.Instance);
+            var fields = GetType().GetFields(BindingFlags.NonPublic | BindingFlags.Instance).ToLookup(x => x.FieldType);
+            
+            fields[typeof(given)].ToList().ForEach(x => ((given)x.GetValue(this)).Invoke(context));
+            fields[typeof(when)].ToList().ForEach(x => ((when)x.GetValue(this)).Invoke(context));
+            var currentThen = (then)fields[typeof(then)].First(x => x.Name == then).GetValue(this);
+            currentThen.Invoke(context);
+        }
+    }
 
-            var givens = fields.Where(x => x.FieldType == typeof(given)).ToList();
+    
+    public abstract class Scenario
+    {
+        public delegate void given();
+        public delegate void when();
+        public delegate void then();
 
-            var whens = fields.Where(x => x.FieldType == typeof(when)).ToList();
+        [Theory, ThenData]
+        public void Run(string then)
+        {
+            var fields = GetType().GetFields(BindingFlags.NonPublic | BindingFlags.Instance).ToLookup(x => x.FieldType);
+            
+            fields[typeof(given)].ToList().ForEach(x => ((given)x.GetValue(this)).Invoke());
+            fields[typeof(when)].ToList().ForEach(x => ((when)x.GetValue(this)).Invoke());
+            var currentThen = (then)fields[typeof(then)].First(x => x.Name == then).GetValue(this);
+            currentThen.Invoke();
+        }
+    }
 
-            var thens = fields.Where(x => x.FieldType == typeof(then)).ToList();
+    public class ThenDataAttribute : DataAttribute
+    {
+        public override IEnumerable<object[]> GetData(MethodInfo testMethod)
+        {
+            if (testMethod.ReflectedType == null) return new List<object[]>();
 
-            givens.ForEach(x => ((given)x.GetValue(this)).Invoke(_context));
-            whens.ForEach(x => ((when)x.GetValue(this)).Invoke(_context));
-            thens.ForEach(x => ((then)x.GetValue(this)).Invoke(_context));
+            var fields = testMethod.ReflectedType.GetFields(BindingFlags.NonPublic | BindingFlags.Instance);
+
+            return fields.Where(x => x.FieldType.Name.Contains("then")).Select(f => new[] { f.Name });
+
+        }
+    }
+
+    public class ScenarioDiscoverer : TheoryDiscoverer
+    {
+        public ScenarioDiscoverer(IMessageSink diagnosticMessageSink) : base(diagnosticMessageSink)
+        {
         }
     }
 }
