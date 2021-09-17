@@ -1,7 +1,7 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using Xunit;
 using Xunit.Abstractions;
 using Xunit.Sdk;
@@ -28,7 +28,6 @@ namespace Given.Core
         }
     }
 
-    
     public abstract class Scenario
     {
         public delegate void given();
@@ -38,7 +37,28 @@ namespace Given.Core
         [Theory, ThenData]
         public void Run(string then)
         {
-            var fields = GetType().GetFields(BindingFlags.NonPublic | BindingFlags.Instance).ToLookup(x => x.FieldType);
+            IEnumerable<Type> getAllTypes(Type current)
+            {
+                var types = new List<Type> { current };
+                
+                while (true)
+                {
+                    var baseType = current.BaseType;
+
+                    if (baseType == typeof(Scenario) || baseType == typeof(object))
+                        break;
+
+                    current = baseType;
+                    types.Add(current);
+                }
+                
+                return types;
+            };
+            
+            var fields = getAllTypes(GetType())
+                .Reverse()
+                .SelectMany(t => t.GetFields(BindingFlags.NonPublic | BindingFlags.Instance))
+                .ToLookup(x => x.FieldType);
             
             fields[typeof(given)].ToList().ForEach(x => ((given)x.GetValue(this)).Invoke());
             fields[typeof(when)].ToList().ForEach(x => ((when)x.GetValue(this)).Invoke());
