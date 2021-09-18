@@ -4,6 +4,7 @@ using Given.Core;
 
 namespace TestExample.Core
 {
+
     // ReSharper disable once UnusedMember.Global
     [SuppressMessage("ReSharper", "UnusedMember.Local")]
     public class building_a_toyota_corrola : Scenario<FactoryContext>
@@ -17,21 +18,21 @@ namespace TestExample.Core
         then the_car_should_be_the_correct_make = _ => _.Car.CarType.Should().EndWith("Corrola");
     }
 
-    public class antoher : Scenario
+    public abstract class another : Scenario
     {
         given first_given = () => { };
         
         then first_then = () => { };
     }
     
-    public class chaibase : antoher
+    public abstract class chaibase : another
     {
         internal static CarFactory _factory;
         internal static Car _car;
 
         given a_toyota_factory = () => _factory = new CarFactory("Toyota");
 
-        when building_a_corolla = () => _car = _factory.Build("Corrola");
+        when building_a_corolla = () => _car = _factory.Build("Camry");
 
         then second_then = () => { };
     }
@@ -42,6 +43,6 @@ namespace TestExample.Core
 
         then the_car_should_be_made_by_the_correct_manufacturer = () => _car.CarType.Should().StartWith("Toyota");
 
-        then the_car_should_be_the_correct_make = () => _car.CarType.Should().EndWith("Corrola");
+        then the_car_should_be_the_correct_make = () => _car.CarType.Should().EndWith("Camry");
     }
 }
